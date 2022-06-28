@@ -1,7 +1,7 @@
 # @Author: shounak.ray
 # @Date:   2022-06-28T09:44:02-07:00
 # @Last modified by:   shounak.ray
-# @Last modified time: 2022-06-28T11:19:21-07:00
+# @Last modified time: 2022-06-28T12:09:38-07:00
 
 import matplotlib.pyplot as plt
 import math
@@ -39,17 +39,25 @@ class SOM:
             return np.array([np.random.uniform(self._weight_min, self._weight_max) for _ in range(num_features)])
 
         def _get_all_neurons(_all_r, _all_c):
-            return np.array([Neuron(_random_weight_vector(), coordinate)
-                             for coordinate in itertools.product(_all_r, _all_c)])
+            oned_list = np.array([Neuron(_random_weight_vector(), coordinate)
+                                  for coordinate in itertools.product(_all_r, _all_c)])
+            matrix_neurons = np.flipud(np.reshape(np.reshape(oned_list, (-1, _single_dim_length)),
+                                                  (-1, _single_dim_length)))[::-1, ::-1].T
+            return matrix_neurons
 
         self.neuronal_data = _get_all_neurons(_all_r, _all_c)
         print("> Feature map initialized.\n")
 
     def plot_neurons(self):
+        def _coordinates_from_neurons(_neuronal_data):
+            res = np.vectorize(lambda n: n.coordinates)(_neuronal_data)
+            crd_matrix = np.array([list(zip(pair[0], pair[1])) for pair in list(zip(res[0], res[1]))])
+            flat_crds = list(itertools.chain(*crd_matrix))
+            return flat_crds
         _soft_sanitation(self.neuronal_data, msg='Create the feature map first before trying to plot the neurons.')
         plt.figure(figsize=(15, 15))
         plt.title(f"Feature map on epoch = {self.curr_epoch} of {self.epochs}")
-        plt.scatter(*zip(*[n.coordinates for n in self.neuronal_data]))
+        plt.scatter(*zip(*_coordinates_from_neurons(self.neuronal_data)))
         plt.show()
 
 
