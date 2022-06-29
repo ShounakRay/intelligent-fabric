@@ -1,6 +1,7 @@
 example.py
 animate.py
 *.mp4
+/pictures
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

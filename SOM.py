@@ -1,7 +1,7 @@
 # @Author: shounak.ray
 # @Date:   2022-06-28T09:44:02-07:00
 # @Last modified by:   shounak.ray
-# @Last modified time: 2022-06-29T12:05:00-07:00
+# @Last modified time: 2022-06-29T14:54:36-07:00
 
 import string
 import matplotlib.pyplot as plt
@@ -17,11 +17,15 @@ from scipy.spatial.distance import squareform, cdist
 from sklearn.manifold import MDS  # for MDS dimensionality reduction
 import seaborn as sns
 import scipy
-from celluloid import Camera
+# from celluloid import Camera
 from datetime import datetime
 from tqdm import tqdm
 from matplotlib import cm
 from sklearn.preprocessing import MinMaxScaler
+import matplotlib.animation as animation
+import imageio.v2 as imageio
+import glob
+import os
 
 
 def _soft_sanitation(variable, msg='Cannot complete operation; requires previous step.'):
@@ -31,13 +35,13 @@ def _soft_sanitation(variable, msg='Cannot complete operation; requires previous
 
 
 class SOM:
-    def __init__(self, neurons, learning_rate, epochs, tau_rate, sigma_0, tau_neighbourhood, convergence_threshold, **kwargs):
+    def __init__(self, neurons, learning_rate, epochs, sigma_0, convergence_threshold, **kwargs):
         self.neurons = float(neurons)
         self.learning_rate = float(learning_rate)
         self.epochs = epochs
-        self.tau_rate = float(tau_rate)
+        self.tau_rate = float(kwargs.get('tau_rate', epochs))
         self.sigma_0 = float(sigma_0)
-        self.tau_neighbourhood = float(tau_neighbourhood)
+        self.tau_neighbourhood = float(kwargs.get('tau_rate', epochs / np.log(sigma_0)))
         self.convergence_threshold = float(convergence_threshold)
 
         self._node_min_value = kwargs.get('NODE_MIN_VALUE', 0)
@@ -72,7 +76,9 @@ class SOM:
         self.neuronal_data = G
         print("> Feature map initialized.\n")
 
-    def plot_neurons(self, figsize=(30, 30), literal=False, **kwargs):
+    def plot_neurons(self, figsize=(10, 10), literal=False, **kwargs):
+        # if kwargs.get('ax') is not None:
+        #     kwargs['ax'].clear()
         hist = {k: v for k, v in nx.get_node_attributes(self.neuronal_data, 'adjustment_history').items() if v != []}
         colors = ['green' if k in list(hist.keys()) else 'red' for k in self.neuronal_data.nodes]
 
@@ -83,15 +89,19 @@ class SOM:
         colors_by_weight = [_viridis(x) for x in colors_by_weight]
 
         sizes = np.array([np.linalg.norm(self.neuronal_data[node]) for node in self.neuronal_data.nodes])
-        sizes = MinMaxScaler(feature_range=(800, 1100)).fit_transform(sizes.reshape(-1, 1))
+        sizes = MinMaxScaler(feature_range=(200, 500)).fit_transform(sizes.reshape(-1, 1))
 
         kwargs = {'color': colors, 'size': sizes, 'color_weight': colors_by_weight}
         if kwargs.get('being_animated', False) is False:
             plt.figure(figsize=figsize)
-        nx.draw(self.neuronal_data, pos=nx.get_node_attributes(self.neuronal_data, 'weight_vector' if literal else 'position'),
-                node_color=kwargs.get('color', 'lightgreen'),
-                with_labels=True,
-                node_size=kwargs.get('sizes', 800))
+        # _ = plt.figure(figsize=(10, 10))
+        img = nx.draw(self.neuronal_data, pos=nx.get_node_attributes(self.neuronal_data, 'weight_vector' if literal else 'position'),
+                      node_color=kwargs.get('color_weight', 'lightgreen'),
+                      with_labels=False,
+                      node_size=kwargs.get('sizes', 200),
+                      ax=kwargs.get('ax'))
+        plt.savefig(f'pictures/neurons-{self.curr_epoch}.png')
+        plt.close()
 
     def _plot_new_layer(self, **kwargs):
         coordinates = list(nx.get_node_attributes(self.neuronal_data, 'weight_vector').values())
@@ -106,9 +116,11 @@ class SOM:
                       dissimilarity='euclidean')
         X_trans = model2d.fit_transform(coordinates)
         # plt.figure(figsize=(8, 8))
-        if kwargs.get('ax') is not None:
-            ax.text(0.5, 1.01, f'Epoch {self.curr_epoch}', transform=ax.transAxes)
+        if (ax := kwargs.get('ax')) is not None:
+            pl.title(f'Epoch {self.curr_epoch}')
         _ = plt.scatter(x=X_trans[:, 0], y=X_trans[:, 1], alpha=0.9, c='black', s=2)
+        plt.savefig(f'pictures/neurons-{self.curr_epoch}.png')
+        plt.close()
         # plt.show()
 
     def fit(self, data, animate=True, anim_every_n_epochs=10, literal=False, **kwargs):
@@ -134,17 +146,20 @@ class SOM:
             return list(self.neuronal_data.nodes)[bmu_index]  # BMU
 
         if animate:
+            # Delete existing files in folder
+            [os.remove(f) for f in glob.glob('pictures/*')]
+            # make folder if it doesn't exist
+            os.makedirs(r'pictures') if not os.path.exists(r'pictures') else None
             fig, ax = plt.subplots(figsize=kwargs.get('figsize', (10, 10)))
-            camera = Camera(fig)
+            # camera = Camera(fig)
         try:
             for epoch in tqdm(range(1, self.epochs + 1)):
                 self.curr_epoch = epoch
                 input_vector = _get_random_input_vector(data)
                 bmu = _get_bmu(input_vector)
                 if animate and epoch % anim_every_n_epochs == 0 and epoch < self.epochs:
-                    self.plot_neurons(literal=True, being_animated=True) if literal else self._plot_new_layer(ax)
-                    plt.gca()
-                    camera.snap()
+                    self.plot_neurons(literal=True, being_animated=True) if literal else self._plot_new_layer()
+                    # camera.snap()
                 adj_mags = [self.update_weight(epoch, bmu, neighbour, input_vector) for neighbour in _get_neighbouring_nodes(bmu)]
                 self.adjustment_history.append(mean_change := np.mean(adj_mags))
                 if mean_change <= self.convergence_threshold:
@@ -154,8 +169,19 @@ class SOM:
             print('Interrupted...working with what we have.')
 
         if animate:
-            animation = camera.animate(interval=kwargs.get('interval', 50))
-            animation.save(f'neuronal_movement-{str(datetime.now())}.mp4', writer='ffmpeg')
+            # ani = animation.ArtistAnimation(fig, self.imgs, interval=kwargs.get('interval', 50))
+            # ani.save(f'neuronal_movement-{str(datetime.now())}.mp4')
+
+            # animation = camera.animate(interval=kwargs.get('interval', 50))
+            # animation.save(f'neuronal_movement-{str(datetime.now())}.mp4', writer='ffmpeg')
+
+            p
+            nums = sorted([int(''.join(filter(str.isdigit, s))) for s in glob.glob('pictures/*.png')])
+            img_paths = [f'pictures/neurons-{n}.png' for n in nums]
+            ims = [imageio.imread(f) for f in img_paths]
+            imageio.mimwrite('file.mp4', ims, fps=60)
+            plt.close()
+
             print('> Done fitting map.')
         # self._plot_new_layer(ax)
 
@@ -194,28 +220,36 @@ class SOM:
 # data = pd.DataFrame(datasets.load_iris()['data'], columns=datasets.load_iris()['feature_names']).to_numpy()
 # data = pd.DataFrame(datasets.fetch_covtype()['data'],
 #                     columns=datasets.fetch_covtype()['feature_names']).to_numpy()
-""" ARTIFICAL CLUSTERS """
-data, labels_true = make_blobs(n_samples=1000, centers=[[0, 0], [2.5, 4], [5, 0]], cluster_std=0.6, random_state=0)
+""" ARTIFICAL CLUSTER – 3 BLOBS """
+# data, labels_true = make_blobs(n_samples=1000, centers=[[0, 0], [2.5, 4], [5, 0]], cluster_std=0.8, random_state=0)
+# data = (data - data.min(0)) / data.ptp(0)
+# # _ = plt.scatter(*zip(*data))
+
+""" ARTIFICAL CLUSTER – SMILY FACE """
+data, labels_true = make_blobs(n_samples=1000, centers=[[0, 4], [4, 4]], cluster_std=0.2, random_state=0)
+data_arc = np.array([[i, -0.5 * np.sin(i)] for i in np.arange(0, np.pi, 0.1)])
+data_arc = [make_blobs(n_samples=80, centers=[c], cluster_std=0.1, random_state=0)[0] for c in data_arc]
+data_arc = np.concatenate(data_arc)
+data = np.vstack((data, data_arc))
 data = (data - data.min(0)) / data.ptp(0)
-_ = plt.scatter(*zip(*data))
-
-neurons = 5 * np.sqrt(len(data))
-learning_rate = 0.4
-epochs = 100
-sigma_0 = 20
-convergence_threshold = 1e-5
-
-tau_rate = epochs
-tau_neighbourhood = epochs / np.log(sigma_0)
+# _ = plt.scatter(*zip(*data))
 
 
-S = SOM(neurons=neurons, learning_rate=learning_rate, epochs=epochs, tau_rate=tau_rate,
-        sigma_0=sigma_0, tau_neighbourhood=tau_neighbourhood, convergence_threshold=convergence_threshold)
-S.create_feature_map(len(data[0]))
-S.fit(data, animate=True, literal=True)
-S.plot_neurons(literal=True)
+def run_model():
+    neurons = 5 * np.sqrt(len(data))
+    learning_rate = 0.15
+    epochs = 200000
+    sigma_0 = 1e1
+    convergence_threshold = 1e-5
+
+    S = SOM(neurons=neurons, learning_rate=learning_rate, epochs=epochs, sigma_0=sigma_0, convergence_threshold=convergence_threshold)
+    S.create_feature_map(len(data[0]))
+    S.fit(data, animate=True, literal=False, anim_every_n_epochs=200)
+# S.plot_neurons(literal=True)
+# _ = plt.plot(S.adjustment_history[100000:150000])
 
 
-_ = plt.plot(S.adjustment_history[100000:150000])
+if __name__ == '__main__':
+    run_model()
 
 # EOF
