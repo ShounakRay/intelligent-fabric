@@ -1,7 +1,7 @@
 # @Author: shounak.ray
 # @Date:   2022-06-28T09:44:02-07:00
 # @Last modified by:   shounak.ray
-# @Last modified time: 2022-06-30T03:17:50-07:00
+# @Last modified time: 2022-06-30T03:28:53-07:00
 
 import matplotlib.pyplot as plt
 import math
@@ -235,7 +235,7 @@ class SOM:
 # data = _normalize(data)
 # # _ = plt.scatter(*zip(*data))
 """ VECTORIZED TEXT DATA – 4 Categories """
-data = tfidf_vectorizer(_get_data(_CATS=['alt.atheism', 'soc.religion.christian', 'comp.graphics']),
+data = tfidf_vectorizer(_get_data(_CATS=None),
                         input='content', max_features=None, use_idf=True, smooth_idf=True, sublinear_tf=True)
 data = _normalize(data)
 
@@ -244,10 +244,11 @@ def run_model():
     # Class/categorical balance is important!
     neurons = 5 * np.sqrt(len(data))
     learning_rate = 0.2
-    epochs = 50000  # Can be determined by likelihood that every sample is seen in the data. (or change algo accordingly)
+    epochs = 500000  # Can be determined by likelihood that every sample is seen in the data. (or change algo accordingly)
     sigma_0 = 100   # Should be some function of num_features. Pull harder if there's a lot of complexity.
     convergence_threshold = 1e-4
     # You want to observe the progression of a pattern slowly
+    # TODO: Add Threading
 
     S = SOM(neurons=neurons, learning_rate=learning_rate, epochs=epochs, sigma_0=sigma_0, convergence_threshold=convergence_threshold, neuron_dim=2)
     S.create_feature_map(len(data[0]))
