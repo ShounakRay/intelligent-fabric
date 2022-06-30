@@ -2,6 +2,8 @@ example.py
 animate.py
 *.mp4
 /pictures
+anim_nx.py
+round*/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
