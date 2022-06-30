@@ -1,7 +1,7 @@
 # @Author: shounak.ray
 # @Date:   2022-06-29T12:53:01-07:00
 # @Last modified by:   shounak.ray
-# @Last modified time: 2022-06-29T14:35:25-07:00
+# @Last modified time: 2022-06-29T15:00:30-07:00
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ import imageio.v2 as imageio
 
 def this_graphs(i):
     G = nx.grid_2d_graph(i, i)
-    nx.draw(G, node_size=20)
+    nx.draw_networkx_nodes(G, pos=nx.spring_layout(G), node_size=20)
 
 
 fig, ax = plt.subplots(figsize=(10, 10))
@@ -22,7 +22,7 @@ for i in range(20):
     this_graphs(i)
     camera.snap()
 
-this_graphs(40)
+this_graphs(10)
 plt.savefig('some.png')
 
 animation = camera.animate(interval=100)
