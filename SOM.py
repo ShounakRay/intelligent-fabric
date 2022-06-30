@@ -1,7 +1,7 @@
 # @Author: shounak.ray
 # @Date:   2022-06-28T09:44:02-07:00
 # @Last modified by:   shounak.ray
-# @Last modified time: 2022-06-30T02:40:11-07:00
+# @Last modified time: 2022-06-30T03:17:50-07:00
 
 import matplotlib.pyplot as plt
 import math
@@ -51,7 +51,7 @@ class SOM:
         self._weight_max = kwargs.get('NODE_WEIGHT_MAX', 1)
 
         self.adjustment_history = []
-        self.curr_epoch = None
+        self.curr_epoch = 0
 
     def create_feature_map(self, num_features):
         def naivetuple_to_pos(naive_tuple, _single_num_neurons, _node_stepsize):
@@ -157,7 +157,7 @@ class SOM:
             os.makedirs(r'pictures') if not os.path.exists(r'pictures') else None
             fig, ax = plt.subplots(figsize=kwargs.get('figsize', (10, 10)))
         try:
-            for epoch in tqdm(range(0, self.epochs + 1)):
+            for epoch in tqdm(range(self.curr_epoch, self.epochs + 1)):
                 self.curr_epoch = epoch
                 input_vector = _get_random_input_vector(data)
                 bmu = _get_bmu(input_vector)
@@ -224,36 +224,43 @@ class SOM:
 # data = _normalize(data)
 # # _ = plt.scatter(*zip(*data))
 """ ARTIFICAL CLUSTER – SMILY FACE """
-data, labels_true = make_blobs(n_samples=1000, centers=[[0, 4], [4, 4]], cluster_std=0.2, random_state=0)
-data_arc = np.array([[i, -0.5 * np.sin(i)] for i in np.arange(0, np.pi, 0.1)])
-data_arc = [make_blobs(n_samples=80, centers=[c], cluster_std=0.1, random_state=0)[0] for c in data_arc]
-data_arc = np.concatenate(data_arc)
-data = np.vstack((data, data_arc))
-# Add noise
-# data = np.hstack((data, np.random.normal(0, 1, len(data)).reshape(-1, 1)))
-# data = np.hstack((data, np.random.normal(0, 1, len(data)).reshape(-1, 1)))
+# data, labels_true = make_blobs(n_samples=1000, centers=[[0, 4], [4, 4]], cluster_std=0.2, random_state=0)
+# data_arc = np.array([[i, -0.5 * np.sin(i)] for i in np.arange(0, np.pi, 0.1)])
+# data_arc = [make_blobs(n_samples=80, centers=[c], cluster_std=0.1, random_state=0)[0] for c in data_arc]
+# data_arc = np.concatenate(data_arc)
+# data = np.vstack((data, data_arc))
+# # Add noise
+# # data = np.hstack((data, np.random.normal(0, 1, len(data)).reshape(-1, 1)))
+# # data = np.hstack((data, np.random.normal(0, 1, len(data)).reshape(-1, 1)))
+# data = _normalize(data)
+# # _ = plt.scatter(*zip(*data))
+""" VECTORIZED TEXT DATA – 4 Categories """
+data = tfidf_vectorizer(_get_data(_CATS=['alt.atheism', 'soc.religion.christian', 'comp.graphics']),
+                        input='content', max_features=None, use_idf=True, smooth_idf=True, sublinear_tf=True)
 data = _normalize(data)
-# _ = plt.scatter(*zip(*data))
 
 
 def run_model():
+    # Class/categorical balance is important!
     neurons = 5 * np.sqrt(len(data))
-    learning_rate = 0.25
-    epochs = 5000
-    sigma_0 = 20
+    learning_rate = 0.2
+    epochs = 50000  # Can be determined by likelihood that every sample is seen in the data. (or change algo accordingly)
+    sigma_0 = 100   # Should be some function of num_features. Pull harder if there's a lot of complexity.
     convergence_threshold = 1e-4
+    # You want to observe the progression of a pattern slowly
 
     S = SOM(neurons=neurons, learning_rate=learning_rate, epochs=epochs, sigma_0=sigma_0, convergence_threshold=convergence_threshold, neuron_dim=2)
     S.create_feature_map(len(data[0]))
     # grid_neurons vs mds_neurons
-    S.fit(data, animate=True, animate_method='grid_neurons', anim_every_n_epochs=100, only_draw_nodes=False)
+    S.fit(data, animate=True,
+          animate_method='mds_neurons', anim_every_n_epochs=100, only_draw_nodes=False)
     S._plot_neuronal_mds(fname='final_neuronal_mds.jpeg', save=False)
     S._plot_neuronal_grid(fname='final_neuronal_grid.jpeg', save=False)
 
 
-nx.draw(S.neuronal_data, pos=nx.get_node_attributes(S.neuronal_data, 'position'))
-plt.figure(figsize=(50, 20))
-_ = plt.plot(S.adjustment_history)
+# nx.draw(S.neuronal_data, pos=nx.get_node_attributes(S.neuronal_data, 'position'))
+# plt.figure(figsize=(50, 20))
+# _ = plt.plot(S.adjustment_history)
 
 
 if __name__ == '__main__':

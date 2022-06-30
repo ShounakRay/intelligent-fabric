@@ -1,13 +1,13 @@
 # @Author: shounak.ray
 # @Date:   2022-06-29T23:24:32-07:00
 # @Last modified by:   shounak.ray
-# @Last modified time: 2022-06-30T00:23:16-07:00
+# @Last modified time: 2022-06-30T03:11:01-07:00
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 
 
-def tfidf_vectorizer(raw_documents, **kwargs):
+def tfidf_vectorizer(raw_documents, input='content', **kwargs):
     """
     USAGE of TF-IDF – Bag of Words Vectorizer + Transformer:
     tfidf_vectorizer(raw_documents, input='content', max_features = None, use_idf = True, smooth_idf = True, sublinear_tf = True)
@@ -20,7 +20,7 @@ def tfidf_vectorizer(raw_documents, **kwargs):
         except Exception as e:
             print('Failed to convert text to np.array. Proceeding with caution...')
 
-    if kwargs.get('input', 'content') == 'content':
+    if input == 'content':
         try:
             if type(raw_documents[0]) is not str:
                 raise ValueError('Input was specified as content, but didn\'t get content.')
